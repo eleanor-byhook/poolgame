@@ -1,21 +1,28 @@
 'use strict';
 
 var BX = require('../util/Box2DShortCuts');
-var config = require('../config') ;
-var PoolBalls = require('./PoolBalls') ;
-var PoolTable = require('./PoolTable') ;
+var config = require('../config');
+var PoolBalls = require('./PoolBalls');
+var PoolTable = require('./PoolTable');
+var canvas = document.getElementById("canvas");
+var mobileOffset = 1;
+
+//convert touch events to mouse-like events
+if (navigator.appVersion.indexOf("Mobile") >=0) {
+  mobileOffset = 0.7
+}
+
 
 var MainWorld = function () {
 
   this.destroyQueue = [] ;
-
   this.world = new BX.b2World(new BX.b2Vec2(0, 0), true) ;
   this.poolTable = new PoolTable(this.world) ;
   this.poolBalls = new PoolBalls(this.world) ;
 
   //setup debug draw
   var debugDraw = new BX.b2DebugDraw();
-  debugDraw.SetSprite(document.getElementById("canvas").getContext("2d"));
+  debugDraw.SetSprite(canvas.getContext("2d"));
   debugDraw.SetDrawScale(30.0);
   debugDraw.SetFillAlpha(0.5);
   debugDraw.SetLineThickness(1.0);
@@ -24,7 +31,8 @@ var MainWorld = function () {
 
   window.setInterval(this.update.bind(this), 1000 / 60);
 
-  document.getElementById("canvas").addEventListener('click', this.onClickHandler.bind(this)) ;
+  canvas.addEventListener('click', this.onClickHandler.bind(this));
+  canvas.addEventListener('touch', this.onClickHandler.bind(this));
 
 } ;
 
@@ -74,19 +82,39 @@ mwproto.getOffRail = function(ball, rail) {
 } ;
 
 mwproto.onClickHandler = function(e) {
+  var cueBall = this.poolBalls.cueBall;
+  var mouseX;
+  var mouseY;
+  console.log(e.type);
 
-  this.poolBalls.cueBall.SetAwake(true) ;
-  var currentVelocity = this.poolBalls.cueBall.GetLinearVelocity() ;
-  var mouseX = (e.clientX-this.poolBalls.cueBall.GetPosition().x)/30 ;
-  var mouseY = (e.clientY-this.poolBalls.cueBall.GetPosition().y)/30 ;
+  if(e.type === 'touchstart') {
+    console.log('touchstart');
+    mouseX = e.pageX;
+    mouseY = e.pageY;
+  } else {
+    mouseX = (e.pageX - cueBall.GetPosition().x ) / 30 ; //converts to meters for box2d
+    mouseY = (e.pageY - cueBall.GetPosition().y ) / 30 ;
+  }
+
+  cueBall.SetAwake(true) ;
+  var currentVelocity = cueBall.GetLinearVelocity();
+  console.log(e);
+  console.log("cbx: "+ cueBall.GetPosition().x);
+  console.log("cby: " +cueBall.GetPosition().y);
+  console.log('mouseX: ' + mouseX);
+  console.log('pageX: '+ e.pageX / 30);
+  console.log('mouseY: ' + mouseY);
+  console.log('pageY: '+ e.pageY / 30);
   var newVelocity = {
-    x: (mouseX-this.poolBalls.cueBall.GetPosition().x)/config.vectorDivisor,
-    y: (mouseY-this.poolBalls.cueBall.GetPosition().y)/config.vectorDivisor
+    x: (mouseX - cueBall.GetPosition().x * mobileOffset), /// config.vectorDivisor,
+    y: (mouseY - cueBall.GetPosition().y * mobileOffset) /// config.vectorDivisor
   } ;
+  console.log('velx: ' + newVelocity.x);
+  console.log('vely: ' + newVelocity.y);
 
   currentVelocity.Add(new BX.b2Vec2(newVelocity.x,newVelocity.y)) ;
 
-  this.poolBalls.cueBall.SetLinearVelocity(currentVelocity);
+  cueBall.SetLinearVelocity(currentVelocity);
 
 } ;
 
@@ -132,6 +160,7 @@ BX.b2ContactListener.prototype.EndContact = function(contact) {
   }
 
 } ;
+
 
 module.exports = MainWorld ;
 
