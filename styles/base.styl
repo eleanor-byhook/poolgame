@@ -1,2 +1,49 @@
 body
   background-color white
+
+
+#canvas
+  position relative
+  display block
+  width 100%
+  margin 0 auto
+
+#canvas
+  @media (max-width 440px)
+    display none
+    width 10%
+
+  @media (max-width 750px)
+    position relative
+    display inline 
+    width 100%
+    margin 0 auto
+    background-image: url('../images/table.png') ;
+    background-size 100%
+
+#game-wrapper {
+  margin: 0 auto ;
+  display: block;
+  width:100% ;
+}
+
+#scoreboard {
+  margin: 0 auto ;
+  display: block;
+  width:80% ;
+  text-align: center ;
+  pointer-events : none ;
+  -webkit-user-select: none; /* Chrome/Safari */
+  -moz-user-select: none; /* Firefox */
+  -ms-user-select: none; /* IE10+ */
+}
+
+#rotateSuggestion
+  display none
+
+  @media (max-width 450px)
+    display inline
+    font-size 30px
+
+body .mobile
+  background-color white

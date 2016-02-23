@@ -1,24 +1,49 @@
 'use strict';
 
 var BX = require('../util/Box2DShortCuts');
-var config = require('../config');
-var PoolBalls = require('./PoolBalls');
-var PoolTable = require('./PoolTable');
+var config = require('../config') ;
+var PoolBalls = require('./PoolBalls') ;
+var PoolTable = require('./PoolTable') ;
+var ScoreBoard = require('../scoreboard/Scoreboard') ;
 var canvas = document.getElementById("canvas");
 var mobileOffset = 1;
 
-//convert touch events to mouse-like events
-if (navigator.appVersion.indexOf("Mobile") >=0) {
-  mobileOffset = 0.7
+//adjust velocity calculation for mobile
+if(navigator.appVersion.indexOf("Mobile") >= 0) {
+  mobileOffset = 0.7;
+  var elem = document.getElementsByTagName("myvideo");
+  if (elem.requestFullscreen) {
+    elem.requestFullscreen();
+  } else if (elem.msRequestFullscreen) {
+    elem.msRequestFullscreen();
+  } else if (elem.mozRequestFullScreen) {
+    elem.mozRequestFullScreen();
+  } else if (elem.webkitRequestFullscreen) {
+    elem.webkitRequestFullscreen();
+  }
 }
 
+if(window.DeviceOrientationEvent) {
+  document.addEventListener("orientationchange", function (e) {
+    switch (window.orientation) {
+      case -90:
+      case 90:
+        break;
+      default:
+        console.log('rotate your phone to landscape mode!');
+    }
+  });
+}
 
 var MainWorld = function () {
+  this.destroyCueBall = false ;
 
-  this.destroyQueue = [] ;
   this.world = new BX.b2World(new BX.b2Vec2(0, 0), true) ;
+  this.context = document.getElementById("canvas").getContext("2d");
+
   this.poolTable = new PoolTable(this.world) ;
-  this.poolBalls = new PoolBalls(this.world) ;
+  this.poolBalls = new PoolBalls(this.world, this.context) ;
+  this.scoreboard = new ScoreBoard() ;
 
   //setup debug draw
   var debugDraw = new BX.b2DebugDraw();
@@ -30,9 +55,10 @@ var MainWorld = function () {
   this.world.SetDebugDraw(debugDraw);
 
   window.setInterval(this.update.bind(this), 1000 / 60);
+  canvas.addEventListener('touchstart', this.touchStart.bind(this));
+  canvas.addEventListener('touchend', this.onClickHandler.bind(this));
+  canvas.addEventListener('mousedown', this.onClickHandler.bind(this));
 
-  canvas.addEventListener('click', this.onClickHandler.bind(this));
-  canvas.addEventListener('touch', this.onClickHandler.bind(this));
 
 } ;
 
@@ -48,12 +74,23 @@ mwproto.update = function () {
 
   for(var i in this.destroyQueue) {
 
+    this.poolBalls.destroyBall(this.destroyQueue[i]) ;
     this.world.DestroyBody(this.destroyQueue[i]) ;
-    //this.destroyQueue[i] = null ;
+
+  }
+
+  this.destroyQueue=[] ;
+
+  if(this.destroyCueBall) {
+    this.poolBalls.destroyCueBall() ;
+    this.scoreboard.changeMessage(config.messages.scratch) ;
+    this.destroyCueBall = false ;
   }
 
   this.world.DrawDebugData();
   this.world.ClearForces();
+  this.poolBalls.update() ;
+  //this.context.clearRect(0, 0, config.canvasWidth, config.canvasHeight);
 
 } ;
 
@@ -81,39 +118,50 @@ mwproto.getOffRail = function(ball, rail) {
   //ball.SetLinearVelocity(newVelocity) ;
 } ;
 
+mwproto.touchStart = function (e) {
+  canvas.style.backgroundColor="green";
+  e.preventDefault();
+  window.startX = e.changedTouches[0].pageX / 30;
+  window.startY = e.changedTouches[0].pageY / 30;
+};
+
 mwproto.onClickHandler = function(e) {
+  e.preventDefault();
+
+  var balls = this.poolBalls.balls;
+  console.table(balls);
   var cueBall = this.poolBalls.cueBall;
-  var mouseX;
-  var mouseY;
-  console.log(e.type);
+  var endX;
+  var endY;
+  var newVelocity;
+  console.log(e);
 
-  if(e.type === 'touchstart') {
-    console.log('touchstart');
-    mouseX = e.pageX;
-    mouseY = e.pageY;
+  if (e.type === 'touchend') {
+    console.log(e.type);
+    canvas.style.backgroundColor = "yellow";
+
+    if (e.type === 'touchend') {
+      endX = (e.changedTouches[0].pageX ) / 30;
+      endY = (e.changedTouches[0].pageY ) / 30;
+    }
+    newVelocity = {
+      x: (endX - window.startX) * 3, ///config.vectorDivisor, //increase ball speed
+      y: (endY - window.startY) * 3///config.vectorDivisor
+    };
+
   } else {
-    mouseX = (e.pageX - cueBall.GetPosition().x ) / 30 ; //converts to meters for box2d
-    mouseY = (e.pageY - cueBall.GetPosition().y ) / 30 ;
+    canvas.style.backgroundColor = "blue";
+    endX = (e.clientX - cueBall.GetPosition().x ) / 30; //converts to meters for box2d
+    endY = (e.clientY - cueBall.GetPosition().y ) / 30;
+    newVelocity = {
+      x: (endX - cueBall.GetPosition().x * mobileOffset), ///config.vectorDivisor, //increase ball speed
+      y: (endY - cueBall.GetPosition().y * mobileOffset) ///config.vectorDivisor
+    };
   }
-
   cueBall.SetAwake(true) ;
   var currentVelocity = cueBall.GetLinearVelocity();
   console.log(e);
-  console.log("cbx: "+ cueBall.GetPosition().x);
-  console.log("cby: " +cueBall.GetPosition().y);
-  console.log('mouseX: ' + mouseX);
-  console.log('pageX: '+ e.pageX / 30);
-  console.log('mouseY: ' + mouseY);
-  console.log('pageY: '+ e.pageY / 30);
-  var newVelocity = {
-    x: (mouseX - cueBall.GetPosition().x * mobileOffset), /// config.vectorDivisor,
-    y: (mouseY - cueBall.GetPosition().y * mobileOffset) /// config.vectorDivisor
-  } ;
-  console.log('velx: ' + newVelocity.x);
-  console.log('vely: ' + newVelocity.y);
-
   currentVelocity.Add(new BX.b2Vec2(newVelocity.x,newVelocity.y)) ;
-
   cueBall.SetLinearVelocity(currentVelocity);
 
 } ;
@@ -133,13 +181,15 @@ BX.b2ContactListener.prototype.BeginContact = function(contact) {
     window.world.destroyQueue.push(b.body);
     console.log('TEKCOP!!!');
 
-  } else if (a.name==='ball' && b.name === 'rail') {
+  } else if (a.name==='cueball' && b.name === 'pocket') {
 
-    //window.world.getOffRail(a.body, b.rail) ;
+    window.world.destroyCueBall = true ;
+    console.log("SCRATCH") ;
 
-  } else if (a.name==='rail' && b.name === 'ball') {
+  } else if (a.name==='cueball' && b.name === 'cueball') {
 
-    //window.world.getOffRail(b.body, a.rail) ;
+    window.world.destroyCueBall = true
+    console.log("SCRATCH") ;
 
   }
 } ;
@@ -149,15 +199,6 @@ BX.b2ContactListener.prototype.EndContact = function(contact) {
   var a = contact.GetFixtureA().GetUserData();
   var b = contact.GetFixtureB().GetUserData();
 
-  if (a.name==='ball' && b.name === 'rail') {
-
-    window.world.getOffRail(a.body, b.rail) ;
-
-  } else if (a.name==='rail' && b.name === 'ball') {
-
-    window.world.getOffRail(b.body, a.rail) ;
-
-  }
 
 } ;
 

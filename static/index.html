@@ -8,8 +8,14 @@
 
     <link rel="stylesheet" href="css/index.css">
   </head>
-  <body>
-    <canvas id="canvas" width="950" height="510"></canvas>
+  <body class="mobile">
+  <div id="game-wrapper">
+    <canvas id="canvas" width="950" height="541"></canvas>
+    <div id="scoreboard">
+      <div id="message">START</div>
+    </div>
+  </div>
+    <div id="rotateSuggestion">This game is best in Landscape mode</div>
     <script src="js/vendor.js"></script>
     <script src="js/main.build.js"></script>
   </body>
